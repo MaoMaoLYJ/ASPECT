@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools==78.1.1", "wheel==0.48.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aspect-marl"
+version = "0.1.0rc1"
+description = "Agent-Specific Parameter-Efficient Core Tuning for Multi-Agent LLM Workflows"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = {file = "LICENSE"}
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=8", "numpy<2", "packaging", "psutil", "omegaconf", "hydra-core"]
+
+[project.scripts]
+aspect-train = "aspect.train:main"
+aspect-download = "aspect.data.download:main"
+aspect-calibrate = "aspect.calibrate:main"
+aspect-evaluate = "aspect.evaluate:main"
+
+[tool.setuptools]
+license-files = ["LICENSE", "licenses/*", "THIRD_PARTY_NOTICES.md"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aspect*", "algorithms*", "rllm*", "verl*", "examples*", "dashboard*", "scripts*"]
+
+[tool.setuptools.package-data]
+aspect = ["defaults.json"]
+algorithms = ["*/config.json"]
+rllm = ["**/*.yaml", "**/*.json", "**/*.jinja", "**/*.jinja2"]
+verl = ["**/*.yaml", "**/*.json", "version/version"]
+examples = ["**/prompt.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

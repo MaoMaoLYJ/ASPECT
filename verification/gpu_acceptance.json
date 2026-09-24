@@ -1,0 +1,144 @@
+{
+  "passed": true,
+  "canonical": false,
+  "purpose": "functional acceptance, not paper accuracy",
+  "model": "Qwen3-1.7B",
+  "task": "Math",
+  "hardware": "two A100 80GB GPUs per cell",
+  "training_batch_size": 8,
+  "training_rollouts_per_problem": 4,
+  "seed": 42,
+  "warmup_steps": 15,
+  "methods": [
+    {
+      "method": "WS",
+      "workflow": "orch_workers",
+      "passed": true,
+      "completed_updates": 2,
+      "nonzero_gradient_routes": [
+        "shared"
+      ],
+      "all_expected_parameters_changed": true,
+      "tensorboard_metrics_verified": true,
+      "checkpoint_saved": true,
+      "online_validation_passes": 0,
+      "online_validation_problems_per_pass": null,
+      "clean_exit": true
+    },
+    {
+      "method": "RS",
+      "workflow": "orch_workers",
+      "passed": true,
+      "completed_updates": 2,
+      "nonzero_gradient_routes": [
+        "orchestrator",
+        "worker",
+        "synthesizer"
+      ],
+      "all_expected_parameters_changed": true,
+      "tensorboard_metrics_verified": true,
+      "checkpoint_saved": true,
+      "online_validation_passes": 0,
+      "online_validation_problems_per_pass": null,
+      "clean_exit": true
+    },
+    {
+      "method": "AS",
+      "workflow": "orch_workers",
+      "passed": true,
+      "completed_updates": 2,
+      "nonzero_gradient_routes": [
+        "orchestrator",
+        "worker0",
+        "worker1",
+        "worker2",
+        "synthesizer"
+      ],
+      "all_expected_parameters_changed": true,
+      "tensorboard_metrics_verified": true,
+      "checkpoint_saved": true,
+      "online_validation_passes": 0,
+      "online_validation_problems_per_pass": null,
+      "clean_exit": true
+    },
+    {
+      "method": "ASPECT",
+      "workflow": "orch_workers",
+      "passed": true,
+      "completed_updates": 2,
+      "nonzero_gradient_routes": [
+        "orchestrator",
+        "worker0",
+        "worker1",
+        "worker2",
+        "synthesizer"
+      ],
+      "all_expected_parameters_changed": true,
+      "tensorboard_metrics_verified": true,
+      "checkpoint_saved": true,
+      "online_validation_passes": 0,
+      "online_validation_problems_per_pass": null,
+      "clean_exit": true
+    },
+    {
+      "method": "WS_Full_FT",
+      "workflow": "orch_workers",
+      "passed": true,
+      "completed_updates": 2,
+      "nonzero_gradient_routes": [
+        "shared"
+      ],
+      "all_expected_parameters_changed": true,
+      "tensorboard_metrics_verified": true,
+      "checkpoint_saved": false,
+      "online_validation_passes": 2,
+      "online_validation_problems_per_pass": 8,
+      "clean_exit": true
+    },
+    {
+      "method": "RS_Full_FT",
+      "workflow": "orch_workers",
+      "passed": true,
+      "completed_updates": 2,
+      "nonzero_gradient_routes": [
+        "orchestrator",
+        "worker",
+        "synthesizer"
+      ],
+      "all_expected_parameters_changed": true,
+      "tensorboard_metrics_verified": true,
+      "checkpoint_saved": false,
+      "online_validation_passes": 2,
+      "online_validation_problems_per_pass": 8,
+      "clean_exit": true
+    },
+    {
+      "method": "AS_Full_FT",
+      "workflow": "orch_workers",
+      "passed": true,
+      "completed_updates": 2,
+      "nonzero_gradient_routes": [
+        "orchestrator",
+        "worker0",
+        "worker1",
+        "worker2",
+        "synthesizer"
+      ],
+      "all_expected_parameters_changed": true,
+      "tensorboard_metrics_verified": true,
+      "checkpoint_saved": false,
+      "online_validation_passes": 2,
+      "online_validation_problems_per_pass": 8,
+      "clean_exit": true
+    }
+  ],
+  "aspect_checkpoint_reload": {
+    "passed": true,
+    "checkpoint_step": 2,
+    "held_out_problems": 4,
+    "independent_tp1_servers": 2,
+    "internal_data_parallel_size": 1
+  },
+  "fresh_200_step_reproduction": false,
+  "other_workflow_coverage": "CPU contract and runtime regression tests, not a new full GPU grid"
+}

@@ -1,0 +1,7 @@
+{
+  "method": "AS_Full_FT",
+  "sharing": "agent",
+  "full_parameter": true,
+  "learning_rate": 0.000001
+}
+

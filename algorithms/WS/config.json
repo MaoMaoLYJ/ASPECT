@@ -1,0 +1,7 @@
+{
+  "method": "WS",
+  "sharing": "workflow",
+  "full_parameter": false,
+  "learning_rate": 0.00002
+}
+

@@ -1,0 +1,2 @@
+"""Pinned public Math source contract."""
+OFFICIAL_DATASET_CONTRACT = {'dapo': {'repository': 'open-r1/DAPO-Math-17k-Processed', 'revision': '31dd309567e3da778038cc87d868b6097a3ccf68', 'config': 'en', 'source_file': 'en/train-00000-of-00001.parquet', 'source_sha256': '40f672fe8b6dbeee953ae5acc75a38e99144e682450e07c625c87c734ec76285', 'raw_rows': 14116, 'train_rows': 12704, 'test_rows': 1412, 'split_seed': 42, 'test_size': 0.1}}

@@ -1,0 +1,7 @@
+{
+  "method": "WS_Full_FT",
+  "sharing": "workflow",
+  "full_parameter": true,
+  "learning_rate": 0.000001
+}
+

@@ -1,0 +1,7 @@
+{
+  "method": "AS",
+  "sharing": "agent",
+  "full_parameter": false,
+  "learning_rate": 0.00002
+}
+

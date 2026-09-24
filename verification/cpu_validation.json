@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "cpu_tests": {
+    "tests": 259,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1
+  },
+  "wheel_build": true,
+  "isolated_wheel_import_and_hydra": true,
+  "bundled_config_and_license_files_verified": true,
+  "cuda_dependencies_reused_from_reference_environment": true,
+  "fresh_complete_cuda_installation_tested": false
+}
