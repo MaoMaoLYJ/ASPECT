@@ -9,7 +9,6 @@ import resource
 import signal
 import subprocess
 import sys
-import tempfile
 import time
 
 from aspect.config import METHODS, WORKFLOWS, build_overrides, entrypoint, render
@@ -48,12 +47,14 @@ def parser():
     p.add_argument("--cpus", type=int, default=min(88, len(os.sched_getaffinity(0))) if hasattr(os, 'sched_getaffinity') else 8)
     p.add_argument("--gpu-memory", type=float, default=0.85)
     p.add_argument("--steps", type=int, default=200)
-    p.add_argument("--smoke", action="store_true", help="Mark a reduced non-canonical validation run")
-    p.add_argument('--quick-smoke', action='store_true',
-                   help='With --smoke only: batch8/n4 and eight online validation problems')
     p.add_argument("--dry-run", action="store_true", help="Print the resolved override contract without loading ML libraries")
     p.add_argument("--config-only", action="store_true", help="Compose the actual Hydra configuration without training")
-    p.add_argument("--tail-control", type=Path, help=argparse.SUPPRESS)
+    p.add_argument('--batch-size', type=int, default=64)
+    p.add_argument('--rollouts', type=int, default=8)
+    p.add_argument('--checkpoint-interval', type=int, default=10)
+    p.add_argument('--validation-interval', type=int, default=10)
+    p.add_argument('--max-prompt-length', type=int)
+    p.add_argument('--max-response-length', type=int)
     return p
 
 
@@ -67,12 +68,13 @@ def main(argv=None):
     cfg = build_overrides(method=args.method, workflow=args.workflow, task=args.task,
                           scale=args.scale, model=model, output=output, ray_temp=ray_temp,
                           cpus=args.cpus, gpus=args.gpus, basis=basis,
-                          learning_rate=args.learning_rate, steps=args.steps, smoke=args.smoke,
-                          gpu_memory=args.gpu_memory, tail_control=args.tail_control,
-                          quick_smoke=args.quick_smoke)
+                          learning_rate=args.learning_rate, steps=args.steps,
+                          gpu_memory=args.gpu_memory, batch_size=args.batch_size, rollouts=args.rollouts,
+                          checkpoint_interval=args.checkpoint_interval, validation_interval=args.validation_interval,
+                          max_prompt_length=args.max_prompt_length, max_response_length=args.max_response_length)
     command = [sys.executable, '-m', 'aspect.entrypoint', entrypoint(args.method, args.workflow, args.task), *render(cfg)]
     if args.dry_run:
-        print(json.dumps({'canonical': not args.smoke, 'overrides': cfg, 'command': command}, indent=2))
+        print(json.dumps({'canonical': True, 'overrides': cfg, 'command': command}, indent=2))
         return
     env = runtime_env(output)
     if args.config_only:
@@ -89,14 +91,12 @@ def main(argv=None):
     output.mkdir(parents=True, exist_ok=False)
     (output / 'logs').mkdir()
     (output / 'run.json').write_text(json.dumps({'method': args.method, 'task': args.task,
-        'workflow': args.workflow, 'scale': args.scale, 'canonical': not args.smoke,
-        'quick_smoke': args.quick_smoke, 'overrides': cfg, 'command': command,
+        'workflow': args.workflow, 'scale': args.scale, 'canonical': True,
+        'overrides': cfg, 'command': command,
         'started_unix': time.time()}, indent=2) + '\n')
     prepare = (['-m', 'aspect.data.math', '--train-root', str(data)] if args.task == 'math' else
                ['-m', 'aspect.data.code', 'register', '--package-root', str(data)])
     subprocess.run([sys.executable, *prepare, '--summary', str(output / 'data_summary.json')], env=env, check=True)
-    if args.quick_smoke and args.method.endswith('_Full_FT'):
-        subprocess.run([sys.executable, '-m', 'aspect.smoke_data', '--run', str(output)], env=env, check=True)
     reward_canary(args.task)
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     from rllm.utils.process_tree import ProcessTree
@@ -110,18 +110,7 @@ def main(argv=None):
             process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT,
                                        start_new_session=True, cwd=Path(__file__).resolve().parents[1])
             tree = ProcessTree(process)
-            last_change, signature = time.monotonic(), None
-            while process.poll() is None:
-                paths = [output / 'paper_metrics.jsonl', output / 'validation/progress.json']
-                if args.tail_control:
-                    paths.append(args.tail_control / f'activity_{args.workflow}.json')
-                progress = [(str(p), p.stat().st_size, p.stat().st_mtime_ns) for p in paths if p.exists()]
-                if progress and progress != signature:
-                    signature, last_change = progress, time.monotonic()
-                if time.monotonic() - last_change > 7200:
-                    raise TimeoutError('No real training/validation progress for two hours')
-                time.sleep(2)
-            code = process.returncode
+            code = process.wait()
             if code:
                 raise RuntimeError(f'Training failed (exit {code}); inspect {output / "logs/train.log"}')
         from aspect.audit import audit_training

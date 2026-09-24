@@ -744,9 +744,9 @@ class AgentWorkflowEngine:
         if processor is not None and "Qwen2VLImageProcessor" in processor.image_processor.__class__.__name__:
             # qwen-vl mrope
             if "Qwen3VLProcessor" in processor.__class__.__name__:
-                from verl.models.transformers.qwen3_vl import get_rope_index
+                raise NotImplementedError("Only the text-only CUDA FSDP/vLLM runtime is included")
             else:
-                from verl.models.transformers.qwen2_vl import get_rope_index
+                raise NotImplementedError("Only the text-only CUDA FSDP/vLLM runtime is included")
 
             for i in range(batch_size):
                 model_inputs = multi_modal_inputs[i] if i < len(multi_modal_inputs) else {}

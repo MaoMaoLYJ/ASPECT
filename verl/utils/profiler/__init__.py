@@ -21,7 +21,7 @@ from .profile import DistProfiler, DistProfilerExtension, ProfilerConfig
 if is_nvtx_available():
     from .nvtx_profile import mark_annotate, mark_end_range, mark_start_range, marked_timer
 elif is_npu_available:
-    from .mstx_profile import mark_annotate, mark_end_range, mark_start_range, marked_timer
+    raise NotImplementedError("NPU profiling is not included")
 else:
     from .performance import marked_timer
     from .profile import mark_annotate, mark_end_range, mark_start_range

@@ -215,17 +215,17 @@ def patch_forward_with_backends(
     forward_with_torch_backend_function = model.__class__.forward
     forward_with_triton_backend_function = model.__class__.forward
     if model.config.model_type in ["qwen2_5_vl", "qwen2_vl"]:
-        from verl.models.transformers.qwen2_vl import forward_with_torch_backend, forward_with_triton_backend
+        raise NotImplementedError("Only the text-only CUDA FSDP/vLLM runtime is included")
 
         forward_with_torch_backend_function = forward_with_torch_backend
         forward_with_triton_backend_function = forward_with_triton_backend
     elif model.config.model_type in ["qwen3_vl", "qwen3_vl_moe"]:
-        from verl.models.transformers.qwen3_vl import forward_with_torch_backend, forward_with_triton_backend
+        raise NotImplementedError("Only the text-only CUDA FSDP/vLLM runtime is included")
 
         forward_with_torch_backend_function = forward_with_torch_backend
         forward_with_triton_backend_function = forward_with_triton_backend
     elif model.config.model_type == "glm4v":
-        from verl.models.transformers.glm4v import forward_with_torch_backend, forward_with_triton_backend
+        raise NotImplementedError("Only the text-only CUDA FSDP/vLLM runtime is included")
 
         forward_with_torch_backend_function = forward_with_torch_backend
         forward_with_triton_backend_function = forward_with_triton_backend
@@ -311,7 +311,7 @@ def apply_monkey_patch(
             Qwen2_5_VLModel = SimpleNamespace(forward=None)
             Qwen2VLModel = SimpleNamespace(forward=None)
 
-        from verl.models.transformers.qwen2_vl import forward_with_normal_backend, qwen2_vl_base_forward
+        raise NotImplementedError("Only the text-only CUDA FSDP/vLLM runtime is included")
 
         Qwen2_5_VLModel.forward = qwen2_vl_base_forward
         Qwen2VLModel.forward = qwen2_vl_base_forward
@@ -332,7 +332,7 @@ def apply_monkey_patch(
             from transformers.models.qwen2_vl.modeling_qwen2_vl import Qwen2VLFlashAttention2 as Qwen2VLAttention
 
         if use_remove_padding or ulysses_sp_size > 1:
-            from verl.models.transformers.qwen2_vl import qwen2_vl_attn_forward
+            raise NotImplementedError("Only the text-only CUDA FSDP/vLLM runtime is included")
 
             Qwen2_5_VLAttention.forward = qwen2_vl_attn_forward
             Qwen2VLAttention.forward = qwen2_vl_attn_forward
@@ -356,7 +356,7 @@ def apply_monkey_patch(
             Qwen3VLMoeTextModel,
         )
 
-        from verl.models.transformers.qwen3_vl import forward_with_normal_backend, qwen3_vl_base_forward
+        raise NotImplementedError("Only the text-only CUDA FSDP/vLLM runtime is included")
 
         Qwen3VLModel.forward = qwen3_vl_base_forward
         Qwen3VLMoeModel.forward = qwen3_vl_base_forward
@@ -379,7 +379,7 @@ def apply_monkey_patch(
             Glm4vTextModel,
         )
 
-        from verl.models.transformers.glm4v import forward_with_normal_backend, glm4v_base_forward
+        raise NotImplementedError("Only the text-only CUDA FSDP/vLLM runtime is included")
 
         Glm4vModel.forward = glm4v_base_forward
         Glm4vForConditionalGeneration.forward = forward_with_normal_backend
@@ -387,7 +387,7 @@ def apply_monkey_patch(
 
         # Step 2: patch attention to support ulysses parallelism
         if use_remove_padding or ulysses_sp_size > 1:
-            from verl.models.transformers.glm4v import glm4v_attn_forward
+            raise NotImplementedError("Only the text-only CUDA FSDP/vLLM runtime is included")
 
             Glm4vTextAttention.forward = glm4v_attn_forward
             print(f"Monkey patch {model.__class__.__name__} attention layer")
@@ -399,7 +399,7 @@ def apply_monkey_patch(
     elif model.config.model_type == "kimi_vl":
         if use_remove_padding or ulysses_sp_size > 1:
             # TODO: Changes need to be made when transformers are adapted.
-            from verl.models.transformers.kimi_vl import _ulysses_flash_attn_forward
+            raise NotImplementedError("Only the text-only CUDA FSDP/vLLM runtime is included")
 
             module.DeepseekV3FlashAttention2.forward = _ulysses_flash_attn_forward
             print("Monkey patch FlashAttention2.forward in KimiVL")

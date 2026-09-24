@@ -81,8 +81,6 @@ class BaseRollout(ABC):
 _ROLLOUT_REGISTRY = {
     ("vllm", "sync"): "verl.workers.rollout.vllm_rollout.vLLMRollout",
     ("vllm", "async"): "verl.workers.rollout.vllm_rollout.vLLMAsyncRollout",
-    ("sglang", "sync"): "verl.workers.rollout.sglang_rollout.sglang_rollout.SGLangRollout",
-    ("sglang", "async"): "verl.workers.rollout.sglang_rollout.sglang_rollout.ServerAdapter",
 }
 
 

@@ -13,6 +13,5 @@
 # limitations under the License.
 
 from .reward_manager import RewardManagerWorker
-from .reward_model import RewardModelManager
 
-__all__ = ["RewardModelManager", "RewardManagerWorker"]
+__all__ = ["RewardManagerWorker"]

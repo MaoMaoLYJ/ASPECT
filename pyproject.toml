@@ -11,9 +11,6 @@ requires-python = ">=3.10,<3.13"
 license = {file = "LICENSE"}
 dependencies = []
 
-[project.optional-dependencies]
-test = ["pytest>=8", "numpy<2", "packaging", "psutil", "omegaconf", "hydra-core"]
-
 [project.scripts]
 aspect-train = "aspect.train:main"
 aspect-download = "aspect.data.download:main"
@@ -25,7 +22,7 @@ license-files = ["LICENSE", "licenses/*", "THIRD_PARTY_NOTICES.md"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["aspect*", "algorithms*", "rllm*", "verl*", "examples*", "dashboard*", "scripts*"]
+include = ["aspect*", "algorithms*", "rllm*", "verl*", "examples*", "dashboard*"]
 
 [tool.setuptools.package-data]
 aspect = ["defaults.json"]
@@ -33,7 +30,3 @@ algorithms = ["*/config.json"]
 rllm = ["**/*.yaml", "**/*.json", "**/*.jinja", "**/*.jinja2"]
 verl = ["**/*.yaml", "**/*.json", "version/version"]
 examples = ["**/prompt.json"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-ra"

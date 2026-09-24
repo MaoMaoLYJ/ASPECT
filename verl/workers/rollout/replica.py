@@ -215,30 +215,10 @@ def _load_vllm():
     return vLLMReplica
 
 
-def _load_sglang():
-    os.environ["SGLANG_USE_CPU_ENGINE"] = "1"
-
-    try:
-        import vllm  # noqa: F401
-    except ImportError:
-        import sys
-        from unittest.mock import Mock
-
-        mock_vllm = Mock()
-        mock_vllm._custom_ops = Mock()
-        mock_vllm._custom_ops.scaled_fp8_quant = Mock()
-        sys.modules["vllm"] = mock_vllm
-        sys.modules["vllm._custom_ops"] = mock_vllm._custom_ops
-
-    from verl.workers.rollout.sglang_rollout.async_sglang_server import SGLangReplica
-
-    del os.environ["SGLANG_USE_CPU_ENGINE"]
-    return SGLangReplica
 
 
 # Register built-in types
 RolloutReplicaRegistry.register("vllm", _load_vllm)
-RolloutReplicaRegistry.register("sglang", _load_sglang)
 
 
 # Original function for backward compatibility

@@ -209,7 +209,7 @@ class DistProfiler:
 
             self._impl = _Nsight(rank=rank, config=config, tool_config=tool_config, **kwargs)
         elif self._tool == "npu":
-            from .mstx_profile import NPUProfiler as _Npu
+            raise NotImplementedError("NPU profiling is not included")
 
             self._impl = _Npu(rank=rank, config=config, tool_config=tool_config, **kwargs)
         elif self._tool == "torch":

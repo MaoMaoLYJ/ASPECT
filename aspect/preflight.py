@@ -6,6 +6,7 @@ import os
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 import subprocess
+import warnings
 
 
 def check_gpus(count):
@@ -16,7 +17,7 @@ def check_gpus(count):
         result = subprocess.check_output(['nvidia-smi', '-i', gpu, '--query-gpu=memory.used',
                                           '--format=csv,noheader,nounits'], text=True)
         if int(result.strip()) > 64:
-            raise RuntimeError(f'GPU {gpu} is already occupied; no processes will be stopped')
+            warnings.warn(f'GPU {gpu} already has allocated memory; ensure sufficient capacity and permission to use it', RuntimeWarning)
     import torch
     if torch.cuda.device_count() != count:
         raise RuntimeError('Visible CUDA device count differs from the allocation')

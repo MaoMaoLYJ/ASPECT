@@ -3,156 +3,56 @@
 import re
 from pathlib import Path
 
-TASK_CONFIGS = {
-    "math": {
-        "workflow_map": {
-            "single_agent": "examples.math_reasoning.single_agent_math_workflow.SingleAgentMathWorkflow",
-            "evaluator_optimizer": "examples.math_reasoning.evaluator_optimizer_math_workflow.EvaluatorOptimizerMathWorkflow",
-            "voting": "examples.math_reasoning.voting_math_workflow.VotingMathWorkflow",
-            "orchestrator_workers_propose": "examples.math_reasoning.orchestrator_workers_math_workflow.OrchestratorWorkersMathWorkflow",
-            "voting_v2": "examples.math_reasoning.voting_v2_math_workflow.VotingV2MathWorkflow",
-            "evaluator_optimizer_v2": "examples.math_reasoning.evaluator_optimizer_v2_math_workflow.EvaluatorOptimizerV2MathWorkflow",
-        },
-        "reward_fn": "rllm.rewards.reward_fn.math_reward_fn",
-        "entry_points": {
-            "evaluator_optimizer": "examples.math_reasoning.train_evaluator_optimizer_math",
-            "voting": "examples.math_reasoning.train_voting_math",
-            "orchestrator_workers_propose": "examples.math_reasoning.train_orchestrator_workers_math",
-            "single_agent": "examples.math_reasoning.train_single_agent_math",
-            "voting_v2": "examples.math_reasoning.train_voting_v2_math",
-            "evaluator_optimizer_v2": "examples.math_reasoning.train_evaluator_optimizer_v2_math",
-        },
-        "default_eval_dataset": "aime2025",
-        "experiment_suffix": "math",
-        "prompt_response_lengths": {
-            "evaluator_optimizer": (30720, 5120),
-            "voting": (20480, 5120),
-            "orchestrator_workers_propose": (20480, 5120),
-            "single_agent": (15360, 5120),
-            "voting_v2": (20480, 5120),
-            "evaluator_optimizer_v2": (30720, 5120),
-        },
-        "eval_prompt_response_lengths": {
-            "evaluator_optimizer": (30720, 8192),
-            "voting": (25600, 8192),
-            "orchestrator_workers_propose": (25600, 8192),
-            "single_agent": (15360, 8192),
-            "voting_v2": (25600, 8192),
-            "evaluator_optimizer_v2": (30720, 8192),
-        },
-        "workflow_params": {
-            "evaluator_optimizer": {
-                "max_iterations": 3,
-                "use_final_outcome_reward": True,
-            },
-            "voting": {
-                "n_votes": 3,
-                "use_final_outcome_reward": True,
-            },
-            "orchestrator_workers_propose": {
-                "max_subtasks": 3,
-                "use_final_outcome_reward": True,
-            },
-            "single_agent": {},
-            "voting_v2": {
-                "n_votes": 3,
-                "use_rubric_reward": True,
-                "use_final_outcome_reward": False,
-            },
-            "evaluator_optimizer_v2": {
-                "max_iterations": 3,
-                "use_final_outcome_reward": True,
-            },
-        },
-        "extra_sbatch_cmds": "",
-        "experiment_filter_include": "math",
-        "experiment_filter_exclude": "deepcoder",
-    },
-    "deepcoder": {
-        "workflow_map": {
-            "single_agent": "examples.deepcoder.single_agent_deepcoder_workflow.SingleAgentDeepcodeWorkflow",
-            "evaluator_optimizer": "examples.deepcoder.deepcoder_evaluator_optimizer_workflow.DeepcodeEvaluatorOptimizerWorkflow",
-            "voting": "examples.deepcoder.deepcoder_voting_workflow.DeepcodeVotingWorkflow",
-            "orchestrator_workers_propose": "examples.deepcoder.deepcoder_orchestrator_workers_workflow.DeepcodeOrchestratorWorkersWorkflow",
-            "voting_v2": "examples.deepcoder.deepcoder_voting_v2_workflow.DeepcodeVotingV2Workflow",
-            "evaluator_optimizer_v2": "examples.deepcoder.deepcoder_evaluator_optimizer_v2_workflow.DeepcodeEvaluatorOptimizerV2Workflow",
-        },
-        "reward_fn": "rllm.rewards.reward_fn.code_reward_fn",
-        "entry_points": {
-            "evaluator_optimizer": "examples.deepcoder.train_deepcoder_evaluator_optimizer",
-            "voting": "examples.deepcoder.train_deepcoder_voting",
-            "orchestrator_workers_propose": "examples.deepcoder.train_deepcoder_orchestrator_workers",
-            "single_agent": "examples.deepcoder.train_single_agent_deepcoder",
-            "voting_v2": "examples.deepcoder.train_deepcoder_voting_v2",
-            "evaluator_optimizer_v2": "examples.deepcoder.train_deepcoder_evaluator_optimizer_v2",
-        },
-        "default_eval_dataset": "deepcoder_primeintellect",
-        "experiment_suffix": "deepcoder",
-        "prompt_response_lengths": {
-            "evaluator_optimizer": (10240, 2048),
-            "voting": (10240, 2048),
-            "orchestrator_workers_propose": (10240, 2048),
-            "single_agent": (4096, 2048),
-            "voting_v2": (10240, 2048),
-            "evaluator_optimizer_v2": (10240, 2048),
-        },
-        # Evaluation-only overrides: larger response length to avoid truncation.
-        "eval_prompt_response_lengths": {
-            "evaluator_optimizer": (15360, 5120),
-            "voting": (20480, 5120),
-            "orchestrator_workers_propose": (20480, 5120),
-            "single_agent": (4096, 5120),
-            "voting_v2": (20480, 5120),
-            "evaluator_optimizer_v2": (15360, 5120),
-        },
-        "workflow_params": {
-            "evaluator_optimizer": {
-                "max_iterations": 2,
-                "use_final_outcome_reward": True,
-                "enable_test_loop": False,
-            },
-            "voting": {
-                "n_votes": 3,
-                "use_final_outcome_reward": True,
-                "enable_test_loop": False,
-            },
-            "orchestrator_workers_propose": {
-                "max_subtasks": 3,
-                "use_final_outcome_reward": True,
-                "enable_test_loop": False,
-            },
-            "single_agent": {
-                "enable_test_loop": False,
-            },
-            "voting_v2": {
-                "n_votes": 3,
-                "use_rubric_reward": True,
-                "use_final_outcome_reward": False,
-                "enable_test_loop": False,
-            },
-            "evaluator_optimizer_v2": {
-                "max_iterations": 2,
-                "use_final_outcome_reward": True,
-                "enable_test_loop": False,
-            },
-        },
-        "extra_sbatch_cmds": "ulimit -n 1048576",
-        # The upstream dashboard names Code runs with ``deepcoder`` while the
-        # portable experiment launcher uses the shorter ``-code`` suffix.  Both
-        # names refer to the same pinned DeepCoder task contract.
-        "experiment_filter_include": ("deepcoder", "-code"),
-        "experiment_filter_exclude": None,
-    },
-}
+TASK_CONFIGS = {'math': {'workflow_map': {'evaluator_optimizer': 'examples.math_reasoning.evaluator_optimizer_math_workflow.EvaluatorOptimizerMathWorkflow',
+                           'voting': 'examples.math_reasoning.voting_math_workflow.VotingMathWorkflow',
+                           'orchestrator_workers_propose': 'examples.math_reasoning.orchestrator_workers_math_workflow.OrchestratorWorkersMathWorkflow'},
+          'reward_fn': 'rllm.rewards.reward_fn.math_reward_fn',
+          'entry_points': {'evaluator_optimizer': 'examples.math_reasoning.train_evaluator_optimizer_math',
+                           'voting': 'examples.math_reasoning.train_voting_math',
+                           'orchestrator_workers_propose': 'examples.math_reasoning.train_orchestrator_workers_math'},
+          'default_eval_dataset': 'dapo_math',
+          'experiment_suffix': 'math',
+          'prompt_response_lengths': {'evaluator_optimizer': (30720, 5120),
+                                      'voting': (20480, 5120),
+                                      'orchestrator_workers_propose': (20480, 5120)},
+          'eval_prompt_response_lengths': {'evaluator_optimizer': (30720, 8192),
+                                           'voting': (25600, 8192),
+                                           'orchestrator_workers_propose': (25600, 8192)},
+          'workflow_params': {'evaluator_optimizer': {'max_iterations': 3,
+                                                      'use_final_outcome_reward': True},
+                              'voting': {'n_votes': 3, 'use_final_outcome_reward': True},
+                              'orchestrator_workers_propose': {'max_subtasks': 3,
+                                                               'use_final_outcome_reward': True}},
+          'experiment_filter_include': 'math',
+          'experiment_filter_exclude': 'deepcoder'},
+ 'deepcoder': {'workflow_map': {'evaluator_optimizer': 'examples.deepcoder.deepcoder_evaluator_optimizer_workflow.DeepcodeEvaluatorOptimizerWorkflow',
+                                'voting': 'examples.deepcoder.deepcoder_voting_workflow.DeepcodeVotingWorkflow',
+                                'orchestrator_workers_propose': 'examples.deepcoder.deepcoder_orchestrator_workers_workflow.DeepcodeOrchestratorWorkersWorkflow'},
+               'reward_fn': 'rllm.rewards.reward_fn.code_reward_fn',
+               'entry_points': {'evaluator_optimizer': 'examples.deepcoder.train_deepcoder_evaluator_optimizer',
+                                'voting': 'examples.deepcoder.train_deepcoder_voting',
+                                'orchestrator_workers_propose': 'examples.deepcoder.train_deepcoder_orchestrator_workers'},
+               'default_eval_dataset': 'deepcoder_primeintellect',
+               'experiment_suffix': 'deepcoder',
+               'prompt_response_lengths': {'evaluator_optimizer': (10240, 2048),
+                                           'voting': (10240, 2048),
+                                           'orchestrator_workers_propose': (10240, 2048)},
+               'eval_prompt_response_lengths': {'evaluator_optimizer': (15360, 5120),
+                                                'voting': (20480, 5120),
+                                                'orchestrator_workers_propose': (20480, 5120)},
+               'workflow_params': {'evaluator_optimizer': {'max_iterations': 2,
+                                                           'use_final_outcome_reward': True,
+                                                           'enable_test_loop': False},
+                                   'voting': {'n_votes': 3,
+                                              'use_final_outcome_reward': True,
+                                              'enable_test_loop': False},
+                                   'orchestrator_workers_propose': {'max_subtasks': 3,
+                                                                    'use_final_outcome_reward': True,
+                                                                    'enable_test_loop': False}},
+               'experiment_filter_include': ('deepcoder', '-code'),
+               'experiment_filter_exclude': None}}
 
-AGENT_NAMES_MAP = {
-    "single_agent": ["generator"],
-    "evaluator_optimizer": ["generator", "evaluator"],
-    "voting": ["generator", "aggregator"],
-    "orchestrator_workers_propose": ["orchestrator", "worker", "synthesizer"],
-    "voting_v2": ["voterA", "voterB", "voterC", "aggregator"],
-    "evaluator_optimizer_v2": ["generator", "evaluator"],
-}
+AGENT_NAMES_MAP = {'evaluator_optimizer': ['generator', 'evaluator'], 'voting': ['generator', 'aggregator'], 'orchestrator_workers_propose': ['orchestrator', 'worker', 'synthesizer']}
 
 MODEL_MAP = {
     "0.6b": "Qwen/Qwen3-0.6B",
@@ -162,10 +62,7 @@ MODEL_MAP = {
 
 INIT_WEIGHT_DIR = "checkpoints/init_weight"
 
-EVAL_DATASETS = {
-    "Math": ["dapo_math", "aime2025", "aime2024", "gpqa_diamond"],
-    "Code": ["deepcoder_primeintellect", "deepcoder_codeforces"],
-}
+EVAL_DATASETS = {'Math': ['dapo_math'], 'Code': ['deepcoder_primeintellect']}
 
 # Per-dataset evaluation overrides for max_prompt_length and max_tokens.
 # Datasets not listed here use the evaluate_checkpoints.py defaults (30720 / 5120).

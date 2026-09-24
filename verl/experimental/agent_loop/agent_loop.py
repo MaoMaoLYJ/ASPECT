@@ -721,7 +721,7 @@ class AgentLoopWorkerBase:
                 self.processor is not None
                 and "Qwen2VLImageProcessor" in self.processor.image_processor.__class__.__name__
             ):
-                from verl.models.transformers.qwen2_vl import get_rope_index
+                raise NotImplementedError("Only the text-only CUDA FSDP/vLLM runtime is included")
 
                 images = getattr(output, "multi_modal_data", {}).get("image", None)
                 current_text = self.tokenizer.decode(input_ids.squeeze(0), skip_special_tokens=True)
@@ -929,7 +929,7 @@ class AgentLoopManager:
         self.reward_model_manager = None
         self.reward_router_address = None
         if self.config.reward_model.enable and self.config.reward_model.enable_resource_pool:
-            from verl.experimental.reward import RewardModelManager
+            raise NotImplementedError("Only the local rule-based reward is included")
 
             self.reward_model_manager = RewardModelManager(config.reward_model, rm_wg)
             self.reward_router_address = self.reward_model_manager.get_router_address()

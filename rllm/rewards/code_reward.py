@@ -15,19 +15,14 @@ import select
 import time
 from typing import Any
 
-from rllm.rewards.code_utils.firejail_exec import code_exec_firejail as lc_code_exec
-from rllm.rewards.code_utils.humanevalplus import get_num_test_cases
+# Generated programs import NumPy after the child disables os.putenv.
+# Load its native runtime before entering that restricted child environment.
+import numpy
 
-# from rllm.rewards.code_utils.swebench import swebench_check_correctness
-from rllm.rewards.code_utils.humanevalplus import run_test as humanevalplus_run_test
-from rllm.rewards.code_utils.kodcode import code_exec as kod_code_exec
 
-# from rllm.rewards.code_utils.code_contests import run_test as code_contests_run_test
+
 from rllm.rewards.code_utils.livecodebench import run_test as lcb_run_test
-from rllm.rewards.code_utils.taco import run_test as taco_run_test
 from rllm.rewards.reward_types import RewardConfig, RewardOutput, RewardType
-from rllm.tools.code_tools.code_tool import CodeTool
-from rllm.tools.code_tools.together_tool import TogetherCodeTool
 
 logger = logging.getLogger(__name__)
 
@@ -130,126 +125,8 @@ def extract_code_from_model(model_response: str):
     return code_blocks[-1].strip()
 
 
-def clean_code_main_block(code: str) -> str:
-    """
-    Removes `if __name__ == "__main__"` blocks from Python code.
-
-    Args:
-        code (str): The input Python code.
-
-    Returns:
-        str: Cleaned code without the main execution block.
-    """
-    code_lines = code.split("\n")
-    filtered_lines = []
-    skip_block = False
-
-    for line in code_lines:
-        if line.strip().startswith('if __name__ == "__main__"') or line.strip().startswith("if __name__ == '__main__'"):
-            skip_block = True
-            continue
-        if skip_block:
-            # Check if we're out of the block (less indentation)
-            if line.strip() and not line.startswith(" ") and not line.startswith("\t"):
-                skip_block = False
-            else:
-                continue
-        filtered_lines.append(line)
-
-    return "\n".join(filtered_lines)
 
 
-def check_correctness(tests: list[dict[str, str]] | dict[str, list[str]], code: str, test_fn, timeout_per_test: int = 12, max_tests: int = 15) -> tuple[bool, dict[str, Any]]:
-    """
-    Check if generated code passes all test cases within a timeout period.
-
-    Args:
-        tests: Test cases in either list of dictionaries or dictionary of lists format
-        code: Generated code to test
-        test_fn: Function to run tests
-        timeout: Maximum execution time in seconds before killing process
-
-    Returns:
-        tuple: (bool, dict) where:
-            - bool: True if all tests pass, False otherwise
-            - dict: Detailed test results with test cases and pass/fail status
-    """
-
-    def evaluate_code(tests, generation, debug, conn, test_fn):
-        """Helper function to run tests in separate process."""
-        try:
-            result = test_fn(tests, test=generation, debug=debug, timeout=timeout_per_test)
-            conn.send(result)
-        except Exception as e:
-            print(f"Error in evaluate_code: {e}")
-        finally:
-            conn.close()
-
-    original_tests = tests
-    if isinstance(tests, list):
-        list_tests = tests
-        total_tests = len(list_tests)
-        if total_tests > max_tests:
-            # Sort indices by test input length and take the max_tests longest ones
-            selected_indices = sorted(range(total_tests), key=lambda i: len(list_tests[i]["input"]), reverse=True)[:max_tests]
-            tests = [list_tests[i] for i in selected_indices]
-        num_tests = len(tests)
-    else:
-        dict_tests = tests
-        total_tests = len(dict_tests["inputs"])
-        if total_tests > max_tests:
-            # Select the tests with the longest input length.
-            selected_indices = sorted(range(total_tests), key=lambda i: len(dict_tests["inputs"][i]), reverse=True)[:max_tests]
-            # Create a new dict with only the selected test cases
-            selected_tests: dict[str, list[str]] = {"inputs": [dict_tests["inputs"][i] for i in selected_indices], "outputs": [dict_tests["outputs"][i] for i in selected_indices]}
-            tests = selected_tests
-        num_tests = len(tests["inputs"])
-
-    parent_conn, child_conn = multiprocessing.Pipe(duplex=False)
-    process = multiprocessing.Process(target=evaluate_code, args=(tests, code, False, child_conn, test_fn))
-    process.start()
-    child_conn.close()  # Close child end in parent so recv() can detect EOF
-
-    global_timeout = (timeout_per_test + 1) * num_tests + 5
-    process.join(timeout=global_timeout)
-
-    if process.is_alive():
-        process.kill()
-        process.join(timeout=5)
-
-    # Read result from pipe
-    test_results_data = None
-    try:
-        if parent_conn.poll():
-            test_results_data = parent_conn.recv()
-    except (EOFError, OSError):
-        pass
-    finally:
-        parent_conn.close()
-        process.close()
-
-    detailed_results: dict[str, Any] = {"all_passed": False, "test_results": [], "total_tests": num_tests, "passed_tests": 0}
-
-    if test_results_data is None:
-        return False, detailed_results
-
-    passed_results = [r == True for r in test_results_data]
-
-    # Create detailed test results
-    test_results_list_typed: list[dict[str, Any]] = detailed_results["test_results"]
-    if isinstance(original_tests, list):
-        assert isinstance(tests, list)
-        for i, (test, result) in enumerate(zip(tests, passed_results, strict=False)):
-            test_results_list_typed.append({"input": test.get("input", ""), "expected": test.get("output", ""), "passed": result})
-    else:
-        assert isinstance(tests, dict)
-        for i, (inp, out, result) in enumerate(zip(tests["inputs"], tests["outputs"], passed_results, strict=False)):
-            test_results_list_typed.append({"input": inp, "expected": out, "passed": result})
-
-    detailed_results["passed_tests"] = sum(passed_results)
-    detailed_results["all_passed"] = all(passed_results)
-
-    return all(passed_results), detailed_results
 
 
 def postprocess_lcb_sample(sample):
@@ -383,32 +260,6 @@ def lcb_check_correctness_direct(sample, generation, timeout=3, debug=False, max
 
 
 # https://huggingface.co/datasets/PrimeIntellect/verifiable-coding-problems
-def primeintellect_check_correctness(tests, code, use_tci=False):
-    if isinstance(tests, str):
-        try:
-            tests = ast.literal_eval(tests)
-            assert isinstance(tests, dict)
-        except (ValueError, SyntaxError) as e:
-            print(f"Error parsing string: {e}")
-            return False, {"all_passed": False, "error": str(e)}
-
-    assert len(tests) >= 1, "PrimeIntellect needs at least one test case"
-    # Convert the tests to the format expected by the taco_run_test function
-    inputs = [t["input"] for t in tests]
-    outputs = [t["output"] for t in tests]
-    fn_name = tests[0].get("fn_name", None)
-    tests_formatted = {
-        "inputs": inputs,
-        "outputs": outputs,
-    }
-    if fn_name:
-        tests_formatted["fn_name"] = fn_name
-
-    if use_tci:
-        codetool = TogetherCodeTool()
-        return codetool_check_correctness(tests_formatted, code, codetool, is_taco_format=True)
-
-    return check_correctness(tests_formatted, code, taco_run_test)
 
 
 def _close_connection_quietly(conn) -> None:
@@ -665,83 +516,10 @@ def lcb_check_correctness_v2(sample, generation, timeout=3, debug=False):
     return detailed_results["all_passed"], detailed_results
 
 
-def leetcode_check_correctness(tests: dict[str, str], code: str) -> tuple[bool, dict[str, Any]]:
-    """
-    Check if generated code passes all LeetCode test cases.
-
-    Args:
-         tests: Dict of test cases with "functional" key containing test code
-         code: Generated code to test
-         timeout: Maximum execution time in seconds before killing process
-         runtime_debug: Whether to print debug info during test execution
-
-    Returns:
-         tuple: (bool, dict) where:
-           - bool: True if all tests pass, False otherwise
-           - dict: Detailed test results
-    """
-    succ, output = lc_code_exec(code + "\n" + tests["functional"])
-    detailed_results = {"all_passed": succ, "output": output, "test_results": [{"passed": succ, "output": output}]}
-
-    if not succ:
-        print(f"Error in code execution: {output}")
-    return succ, detailed_results
 
 
-def kodcode_check_correctness(test: str, code: str, timeout_per_test: int = 5) -> tuple[bool, dict[str, Any]]:
-    """
-    Check if generated code passes all Kodcode test cases.
-
-    Args:
-        test: String of the test file content
-        code: Generated code to test
-        timeout: Maximum execution time in seconds before killing process
-        runtime_debug: Whether to print debug info during test execution
-
-    Returns:
-        tuple: (bool, dict) where:
-            - bool: True if all tests pass, False otherwise
-            - dict: Detailed test results
-    """
-    # Count the number of test functions in the test file
-    num_tests = test.count("def test")
-
-    # Remove 'if __name__ == "__main__":' block if present
-    code = clean_code_main_block(code)
-
-    succ, output = kod_code_exec(code, test, timeout_per_test * num_tests)
-    detailed_results = {"all_passed": succ, "output": output, "total_tests": num_tests, "test_results": [{"passed": succ, "output": output}]}
-
-    if not succ:
-        print(f"Error in code execution: {output}")
-    return succ, detailed_results
 
 
-def humanevalplus_check_correctness(test: str, code: str, timeout_per_test: int = 1) -> tuple[bool, dict[str, Any]]:
-    """
-    Check if generated code passes all HumanEvalPlus test cases.
-
-    Args:
-        test: String of the test file content
-        code: Generated code to test
-        timeout: Maximum execution time in seconds before killing process
-        runtime_debug: Whether to print debug info during test execution
-
-    Returns:
-        tuple: (bool, dict) where:
-            - bool: True if all tests pass, False otherwise
-            - dict: Detailed test results
-    """
-    code = clean_code_main_block(code)
-
-    num_test_cases = get_num_test_cases(test)
-    succ, output = humanevalplus_run_test(code, test, timeout_per_test * num_test_cases)
-
-    detailed_results = {"all_passed": succ, "output": output, "total_tests": num_test_cases, "test_results": [{"passed": succ, "output": output}]}
-
-    if not succ:
-        print(f"Error in code execution: {output}")
-    return succ, detailed_results
 
 
 def taco_to_lcb_format(tests):
@@ -777,36 +555,6 @@ def taco_to_lcb_format(tests):
     return test_cases
 
 
-def codetool_check_correctness(tests: Any, code: str, codetool: CodeTool, is_taco_format=True, timeout=30) -> tuple[bool, dict[str, Any]]:
-    from rllm.tools.utils import call_based_test_code_wrapper, stdin_test_code_wrapper
-
-    fn_name = None
-    call_based = False
-
-    if isinstance(tests, dict) and "fn_name" in tests:
-        call_based = True
-        fn_name = tests.get("fn_name", None)
-
-    new_tests = taco_to_lcb_format(tests) if is_taco_format and not fn_name else tests
-
-    if call_based:
-        test_wrapped_code = call_based_test_code_wrapper(code, new_tests)
-    else:
-        test_wrapped_code = stdin_test_code_wrapper(code, new_tests)
-
-    tool_response = codetool(code=test_wrapped_code, timeout=timeout)
-
-    detailed_results = {"all_passed": not tool_response.error, "output": tool_response.output, "error": tool_response.error, "test_results": []}
-
-    # Try to extract individual test results if possible
-    if isinstance(new_tests, list):
-        detailed_results["total_tests"] = len(new_tests)
-        detailed_results["test_results"] = [{"input": test.get("input", ""), "expected": test.get("output", ""), "passed": not tool_response.error} for test in new_tests]
-
-    if tool_response.error:
-        print(f"Error in code execution: {tool_response.error}")
-        return False, detailed_results
-    return True, detailed_results
 
 
 class RewardCodeFn:
@@ -847,7 +595,7 @@ class RewardCodeFn:
             return RewardOutput(reward=self.config.format_error_reward, is_correct=False, metadata={"error": "No code found in model response"})
 
         if self.config.use_together_code_interpreter:
-            codetool = TogetherCodeTool()
+            raise ValueError("Only the local Code judge is included")
 
         # Tests: List[Dictionary] - Codeforces, LiveCodeBench
         # Tests: Dictionary[Lists] - CodeContests, Taco/Apps
@@ -857,7 +605,7 @@ class RewardCodeFn:
         try:
             if dataset_name in ["taco", "apps", "code_contests"]:
                 if self.config.use_together_code_interpreter:
-                    is_correct, test_details = codetool_check_correctness(tests, model_code, codetool, is_taco_format=True)
+                    raise ValueError("Only the local Code judge is included")
                 else:
                     tests = taco_to_lcb_format(tests)
                     if _USE_DIRECT_EXECUTION:
@@ -865,7 +613,7 @@ class RewardCodeFn:
                     else:
                         is_correct, test_details = lcb_check_correctness_v2(tests, model_code, debug=False)
             elif dataset_name == "leetcode":
-                is_correct, test_details = leetcode_check_correctness(tests, model_code)
+                raise NotImplementedError("Dataset not included in this runtime")
             elif dataset_name in ["livecodebench", "codeforces", "primeintellect"]:
                 # Handle case where tests is a JSON string
                 if isinstance(tests, str):
@@ -880,9 +628,9 @@ class RewardCodeFn:
                 else:
                     is_correct, test_details = lcb_check_correctness_v2(tests, model_code, debug=False)
             elif dataset_name == "kodcode":
-                is_correct, test_details = kodcode_check_correctness(tests, model_code)
+                raise NotImplementedError("Dataset not included in this runtime")
             elif dataset_name == "humanevalplus":
-                is_correct, test_details = humanevalplus_check_correctness(tests, model_code)
+                raise NotImplementedError("Dataset not included in this runtime")
             else:
                 raise NotImplementedError(f"Dataset {dataset_name} not implemented")
         except NotImplementedError:

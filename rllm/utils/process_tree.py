@@ -2,11 +2,9 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import signal
 import subprocess
 import threading
-import time
 
 import psutil
 
@@ -90,29 +88,3 @@ class ProcessTree:
             raise RuntimeError(f"Owned process did not exit after SIGKILL: {self.process.pid}") from exc
         if live:
             raise RuntimeError(f"Owned descendants survived SIGKILL: {live}")
-
-
-class ProgressWatchdog:
-    def __init__(self, path, startup_timeout, idle_timeout, now=None):
-        self.path = Path(path)
-        self.startup_timeout, self.idle_timeout = startup_timeout, idle_timeout
-        self.last_change = time.monotonic() if now is None else now
-        self.signature = None
-        self.started = False
-
-    def check(self, now=None):
-        now = time.monotonic() if now is None else now
-        try:
-            stat = self.path.stat()
-            # Network filesystems may coarsen mtimes. Small progress records
-            # can change without changing their length or reported timestamp.
-            content = self.path.read_bytes() if stat.st_size <= 4096 else None
-            signature = (stat.st_mtime_ns, stat.st_size, content)
-            if stat.st_size and signature != self.signature:
-                self.signature, self.last_change, self.started = signature, now, True
-        except FileNotFoundError:
-            pass
-        limit = self.idle_timeout if self.started else self.startup_timeout
-        if now - self.last_change > limit:
-            phase = "progress" if self.started else "startup"
-            raise TimeoutError(f"No real {phase} for {limit}s: {self.path}")

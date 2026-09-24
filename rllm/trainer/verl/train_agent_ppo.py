@@ -13,8 +13,6 @@ from omegaconf import OmegaConf, open_dict
 from verl.trainer.ppo.reward import load_reward_manager
 from verl.utils.device import is_cuda_available
 
-from rllm.trainer.env_agent_mappings import AGENT_CLASS_MAPPING, ENV_CLASS_MAPPING
-from rllm.trainer.verl.agent_ppo_trainer import AgentPPOTrainer
 
 # Local application imports
 from rllm.trainer.verl.agent_workflow_trainer import AgentWorkflowPPOTrainer
@@ -115,7 +113,7 @@ class TaskRunner:
                 #   Please set trainer.use_legacy_worker_impl = false to switch to the new worker implementation.")
                 from verl.workers.fsdp_workers import CriticWorker
             elif use_legacy_worker_impl == "disable":
-                from verl.workers.roles import CriticWorker
+                raise NotImplementedError("Only the text-only CUDA FSDP/vLLM runtime is included")
 
                 print("Using new worker implementation")
             else:
@@ -125,7 +123,7 @@ class TaskRunner:
 
         elif config.actor_rollout_ref.actor.strategy == "megatron":
             assert config.actor_rollout_ref.actor.strategy == config.critic.strategy
-            from verl.workers.megatron_workers import ActorRolloutRefWorker, AsyncActorRolloutRefWorker, CriticWorker
+            raise NotImplementedError("Only the text-only CUDA FSDP/vLLM runtime is included")
 
             actor_rollout_cls = AsyncActorRolloutRefWorker if config.actor_rollout_ref.rollout.mode == "async" else ActorRolloutRefWorker
         else:
@@ -161,80 +159,42 @@ class TaskRunner:
         resource_pool_manager = ResourcePoolManager(resource_pool_spec=resource_pool_spec, mapping=mapping)
 
         # if config.rllm.workflow.use_workflow:
-        if agent_run_func is not None:
-            print("IMPORTANT: Using AgentSdkTrainer")
-            from rllm.trainer.verl.agent_sdk_trainer import AgentSdkTrainer
-
-            trainer = AgentSdkTrainer(
-                config=config,
-                tokenizer=tokenizer,
-                role_worker_mapping=role_worker_mapping,
-                resource_pool_manager=resource_pool_manager,
-                ray_worker_group_cls=ray_worker_group_cls,
-                agent_run_func=agent_run_func,
-            )
-        elif workflow_class is not None:
-            workflow_args = workflow_args or {}
-            if config.rllm.workflow.get("workflow_args") is not None:
-                for key, value in config.rllm.workflow.get("workflow_args").items():
-                    if value is not None:
-                        if key in workflow_args and isinstance(workflow_args[key], dict):
-                            workflow_args[key].update(value)
-                        else:
-                            workflow_args[key] = value
-
-            # Extract initial_lora_weights and inject into actor config
-            initial_lora_weights = workflow_args.pop("initial_lora_weights", None)
-            if initial_lora_weights:
-                with open_dict(config):
-                    if config.actor_rollout_ref.get("share_policy"):
-                        # share_policy=True: load generator LoRA as the "default" adapter
-                        generator_path = initial_lora_weights.get("generator") or next(iter(initial_lora_weights.values()), None)
-                        if generator_path:
-                            config.actor_rollout_ref.model.lora_adapter_path = generator_path
+        if workflow_class is None or agent_run_func is not None:
+            raise ValueError("The minimal package requires one of the three supported workflows")
+        workflow_args = workflow_args or {}
+        if config.rllm.workflow.get("workflow_args") is not None:
+            for key, value in config.rllm.workflow.get("workflow_args").items():
+                if value is not None:
+                    if key in workflow_args and isinstance(workflow_args[key], dict):
+                        workflow_args[key].update(value)
                     else:
-                        # share_policy=False: pass per-agent adapter paths to FSDP worker
-                        config.actor_rollout_ref.initial_lora_adapters = initial_lora_weights
+                        workflow_args[key] = value
 
-            trainer = AgentWorkflowPPOTrainer(
-                config=config,
-                tokenizer=tokenizer,
-                processor=processor,
-                role_worker_mapping=role_worker_mapping,
-                resource_pool_manager=resource_pool_manager,
-                ray_worker_group_cls=ray_worker_group_cls,
-                reward_fn=reward_fn,
-                val_reward_fn=val_reward_fn,
-                workflow_class=workflow_class,
-                workflow_args=workflow_args,
-            )
+        # Extract initial_lora_weights and inject into actor config
+        initial_lora_weights = workflow_args.pop("initial_lora_weights", None)
+        if initial_lora_weights:
+            with open_dict(config):
+                if config.actor_rollout_ref.get("share_policy"):
+                    # share_policy=True: load generator LoRA as the "default" adapter
+                    generator_path = initial_lora_weights.get("generator") or next(iter(initial_lora_weights.values()), None)
+                    if generator_path:
+                        config.actor_rollout_ref.model.lora_adapter_path = generator_path
+                else:
+                    # share_policy=False: pass per-agent adapter paths to FSDP worker
+                    config.actor_rollout_ref.initial_lora_adapters = initial_lora_weights
 
-        else:
-            if env_class is None:
-                env_class = ENV_CLASS_MAPPING[config.rllm.env.name]
-            if agent_class is None:
-                agent_class = AGENT_CLASS_MAPPING[config.rllm.agent.name]
-
-            env_args = env_args or {}
-            agent_args = agent_args or {}
-            if config.rllm.env.get("env_args") is not None:
-                env_args.update(config.rllm.env.get("env_args"))
-            if config.rllm.agent.get("agent_args") is not None:
-                agent_args.update(config.rllm.agent.get("agent_args"))
-
-            trainer = AgentPPOTrainer(
-                config=config,
-                tokenizer=tokenizer,
-                role_worker_mapping=role_worker_mapping,
-                resource_pool_manager=resource_pool_manager,
-                ray_worker_group_cls=ray_worker_group_cls,
-                reward_fn=reward_fn,
-                val_reward_fn=val_reward_fn,
-                env_class=env_class,
-                agent_class=agent_class,
-                env_args=env_args,
-                agent_args=agent_args,
-            )
+        trainer = AgentWorkflowPPOTrainer(
+            config=config,
+            tokenizer=tokenizer,
+            processor=processor,
+            role_worker_mapping=role_worker_mapping,
+            resource_pool_manager=resource_pool_manager,
+            ray_worker_group_cls=ray_worker_group_cls,
+            reward_fn=reward_fn,
+            val_reward_fn=val_reward_fn,
+            workflow_class=workflow_class,
+            workflow_args=workflow_args,
+        )
 
         trainer.init_workers()
         try:

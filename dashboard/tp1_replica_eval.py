@@ -30,7 +30,7 @@ def record_progress(event):
 class ReplicaServers:
     def __init__(self, **kwargs):
         devices = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
-        if (not 1 <= REPLICA_COUNT <= 8 or len(devices) != REPLICA_COUNT
+        if (REPLICA_COUNT < 1 or len(devices) != REPLICA_COUNT
                 or len(set(devices)) != REPLICA_COUNT or any(not d.strip() for d in devices)
                 or kwargs["tensor_parallel_size"] != 1 or kwargs["data_parallel_size"] != REPLICA_COUNT):
             raise ValueError("Replica evaluation requires distinct GPUs, TP1, and matching replica count")
